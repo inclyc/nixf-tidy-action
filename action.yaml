@@ -1,0 +1,6 @@
+name: typescript-action
+description: Template of TypeScript Action
+
+runs:
+  using: "node20"
+  main: "index.js"
