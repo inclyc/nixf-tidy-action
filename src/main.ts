@@ -145,7 +145,7 @@ async function runOnPR(req: {
 
   if (changedNix.length == 0) {
     console.log("No Nix files changed...");
-    process.exit(78);
+    process.exit(0);
   }
 
   if (!await nixfTidy(changedNix)) {
