@@ -61,7 +61,8 @@ function formatString(template: string, ...args: string[]): string {
   return template.replace(/{}/g, () => args.shift() || '');
 }
 
-async function nixfTidy(changedNix: string[]) {
+async function nixfTidy(changedNix: string[]): Promise<boolean> {
+  let clean = true
   await Promise.all(
     changedNix.map(async (file) => {
       // Read the file, and use it for stdin.
@@ -78,6 +79,9 @@ async function nixfTidy(changedNix: string[]) {
 
       // Parse stdout, it is a json.
       const obj: Diagnostic[] = JSON.parse(stdout);
+
+      if (obj.length > 0)
+        clean = false
 
       // Obj should be a list, iterate it.
       obj.forEach((diagnostic) => {
@@ -116,6 +120,7 @@ async function nixfTidy(changedNix: string[]) {
       });
     }),
   );
+  return clean
 }
 
 /**
@@ -143,7 +148,9 @@ async function runOnPR(req: {
     process.exit(78);
   }
 
-  await nixfTidy(changedNix);
+  if (!await nixfTidy(changedNix)) {
+    process.exit(3);
+  }
 }
 
 export async function run() {
