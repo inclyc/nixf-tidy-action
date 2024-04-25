@@ -115,7 +115,7 @@ async function nixfTidy(changedNix: string[]): Promise<boolean> {
             title: formatString(note.message, ...note.args),
             ...toGithubRange(note.range),
           };
-          core.notice(`note: ${diagnostic.message}`, properties);
+          core.notice(`note: ${note.sname}`, properties);
         });
       });
     }),
