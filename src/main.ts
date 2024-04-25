@@ -51,6 +51,16 @@ function toGithubRange(range: Range) {
   };
 }
 
+/**
+ * Format libnixf template strings. It uses "{}" as the placeholder.
+ * @param template the template string, provided by libnixf
+ * @param args arguments to replace
+ * @returns formatted string
+ */
+function formatString(template: string, ...args: string[]): string {
+  return template.replace(/{}/g, () => args.shift() || '');
+}
+
 async function nixfTidy(changedNix: string[]) {
   await Promise.all(
     changedNix.map(async (file) => {
@@ -74,7 +84,7 @@ async function nixfTidy(changedNix: string[]) {
         // "Element" are diagnostics
         const properties: core.AnnotationProperties = {
           file,
-          title: diagnostic.message,
+          title: formatString(diagnostic.message, ...diagnostic.args),
           ...toGithubRange(diagnostic.range),
         };
         switch (diagnostic.severity) {
@@ -98,7 +108,7 @@ async function nixfTidy(changedNix: string[]) {
           // Make the note.
           const properties: core.AnnotationProperties = {
             file,
-            title: note.message,
+            title: formatString(note.message, ...note.args),
             ...toGithubRange(note.range),
           };
           core.info(`note: ${diagnostic.message}`);
