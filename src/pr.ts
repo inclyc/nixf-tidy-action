@@ -7,23 +7,31 @@ export async function getComments(files: string[], positionMap: PositionMap) {
   const comments = await Promise.all(
     files.map(async (file) => {
       // Construct diagnostics from nixf-tidy.
-      const diagnostics = await nixfDiagnose(fs.createReadStream(file));
+      const diagnostics = await (async () => {
+        try {
+          const f = await fs.promises.open(file);
+          return await nixfDiagnose(f.createReadStream());
+        } catch (err) {
+          return [];
+        }
+      })();
+
       // Make PR review comments from diagnostics.
-      return diagnostics.flatMap((diagnostic) => {
-        const lCurLine = diagnostic.range.lCur.line + 1;
-        if (positionMap.get(file)?.has(lCurLine)) {
-          // Make comment at that line
-          const line = positionMap.get(file)?.get(lCurLine);
-          return [
-            {
+      return diagnostics
+        .filter(diag => diag.sname !== 'sema-escaping-with')
+        .flatMap((diagnostic) => {
+          const lCurLine = diagnostic.range.lCur.line + 1;
+          if (positionMap.get(file)?.has(lCurLine)) {
+            // Make comment at that line
+            const line = positionMap.get(file)?.get(lCurLine);
+            return [{
               path: file,
               position: line,
               body: formatString(diagnostic.message, ...diagnostic.args),
-            },
-          ];
-        }
-        return [];
-      });
+            }];
+          }
+          return [];
+        });
     }),
   );
   return comments.flat();
@@ -36,7 +44,7 @@ export async function reviewPR(
     repo: string;
     pull_number: number;
   },
-): Promise<void> {
+) {
   // Get diff from PRs
   const { data: diff } = await octokit.rest.pulls.get({
     ...req,
@@ -56,21 +64,8 @@ export async function reviewPR(
     .filter((filename) => filename.match(pattern));
 
   if (changedNix.length == 0) {
+    return [];
   }
 
-  const comments = await getComments(changedNix, positionMap);
-
-  if (comments.length > 0) {
-    octokit.rest.pulls.createReview({
-      ...req,
-      comments,
-      event: "COMMENT",
-    });
-  } else {
-    // Approve the PR if there are no comments.
-    octokit.rest.pulls.createReview({
-      ...req,
-      event: "APPROVE",
-    });
-  }
+  return await getComments(changedNix, positionMap);
 }
